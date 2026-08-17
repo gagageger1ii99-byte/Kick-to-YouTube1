@@ -1,17 +1,15 @@
 import os
 import argparse
+import json
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
-def upload_to_youtube(file_path, title="Uploaded Video"):
-    # قراءة التوكن من الـ Environment Variables (الذي خزناه في GitHub Secrets)
+def upload_to_youtube(file_path, title, privacy_status):
     token_json = os.environ.get("YOUTUBE_TOKEN_JSON")
     if not token_json:
         raise Exception("YOUTUBE_TOKEN_JSON is not set in environment variables!")
     
-    # بناء الاعتماديات
-    import json
     token_info = json.loads(token_json)
     creds = Credentials.from_authorized_user_info(token_info)
     
@@ -20,11 +18,11 @@ def upload_to_youtube(file_path, title="Uploaded Video"):
     body = {
         'snippet': {
             'title': title,
-            'description': 'تم النشر تلقائياً عبر نظام الأتمتة الخاص بنا',
-            'categoryId': '22' # فئة الألعاب أو الترفيه
+            'description': 'تم النشر تلقائياً عبر نظام الأتمتة المطور 🚀',
+            'categoryId': '22' # فئة الألعاب
         },
         'status': {
-            'privacyStatus': 'private' # أو public حسب رغبتك
+            'privacyStatus': privacy_status
         }
     }
 
@@ -41,13 +39,15 @@ def upload_to_youtube(file_path, title="Uploaded Video"):
     while response is None:
         status, response = request.next_chunk()
         if status:
-            print(f"تم الرفع بنسبة: {int(status.progress() * 100)}%")
+            print(f"نسبة الرفع: {int(status.progress() * 100)}%")
 
     print(f"تم النشر بنجاح! Video ID: {response.get('id')}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--file", default="video.mp4", help="Path to video file")
+    parser.add_argument("--title", default="Uploaded Video", help="Video Title")
+    parser.add_argument("--privacy", default="private", help="Privacy Status")
     args = parser.parse_args()
     
-    upload_to_youtube(args.file)
+    upload_to_youtube(args.file, args.title, args.privacy)
