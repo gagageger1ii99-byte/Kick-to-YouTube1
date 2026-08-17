@@ -1,0 +1,43 @@
+name: Kick to YouTube Automation
+
+on:
+  workflow_dispatch:
+    inputs:
+      kick_url:
+        description: 'رابط الـ HLS (.m3u8) لبث Kick'
+        required: true
+        type: string
+      video_title:
+        description: 'عنوان الفيديو على يوتيوب'
+        required: true
+        type: string
+
+jobs:
+  upload_video:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install Python Dependencies
+        run: pip install -r requirements.txt
+
+      - name: Create Token JSON
+        env:
+          TOKEN_JSON: ${{ secrets.YOUTUBE_TOKEN_JSON }}
+        run: echo "$TOKEN_JSON" > token.json
+
+      - name: Run Upload Script
+        env:
+          KICK_URL: ${{ github.event.inputs.kick_url }}
+          VIDEO_TITLE: ${{ github.event.inputs.video_title }}
+        run: python main.py
+
