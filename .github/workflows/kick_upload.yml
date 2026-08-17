@@ -1,55 +1,35 @@
-name: Advanced Kick/YouTube Pipeline
+name: Advanced Multi-Platform Pipeline
 
 on:
-  workflow_dispatch:
-    inputs:
-      url:
-        description: 'رابط الفيديو المراد تحميله'
-        required: true
-        type: string
-      title:
-        description: 'عنوان الفيديو على يوتيوب'
-        required: false
-        default: 'Auto Uploaded Stream'
-        type: string
-      privacy:
-        description: 'خصوصية الفيديو (private, unlisted, public)'
-        required: false
-        default: 'private'
-        type: string
+  repository_dispatch:
+    types: [kick_upload_event]
 
 jobs:
-  build_and_upload:
+  process_video:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install google-api-python-client google-auth-oauthlib google-auth-httplib2 yt-dlp
-
-      - name: Download Video via yt-dlp
-        env:
-          VIDEO_URL: ${{ github.event.inputs.url }}
-        run: |
-          echo "جاري تحميل الفيديو من الرابط المحدد..."
-          yt-dlp -f "bv*+ba/b" -o "video.mp4" "$VIDEO_URL" || yt-dlp -o "video.mp4" "$VIDEO_URL"
-
-      - name: Upload to YouTube
+      - name: Run Downloader Pipeline
         env:
           YOUTUBE_TOKEN_JSON: ${{ secrets.YOUTUBE_TOKEN_JSON }}
+          VIDEO_URL: ${{ github.event.client_payload.url }}
+          VIDEO_TITLE: ${{ github.event.client_payload.title }}
+          VIDEO_PRIVACY: ${{ github.event.client_payload.privacy }}
         run: |
-          python main.py --file video.mp4 --title "${{ github.event.inputs.title }}" --privacy "${{ github.event.inputs.privacy }}"
-
-      - name: Cleanup Temporary Files
-        if: always()
-        run: |
-          rm -f video.mp4
-          echo "تم تنظيف الملفات المؤقتة بنجاح."
+          echo "Processing URL: $VIDEO_URL"
+          # هنا تضع المنطق الخاص بك لاكتشاف المنصة
+          if [[ "$VIDEO_URL" == *"kick.com"* ]]; then
+            echo "Detected Kick video. Starting Kick-to-YouTube logic..."
+            # أضف أمر التحميل الخاص بك لـ Kick هنا
+          elif [[ "$VIDEO_URL" == *"tiktok.com"* ]]; then
+            echo "Detected TikTok video. Starting TikTok-to-YouTube logic..."
+          elif [[ "$VIDEO_URL" == *"twitter.com"* ]] || [[ "$VIDEO_URL" == *"x.com"* ]]; then
+            echo "Detected Twitter/X video..."
+          elif [[ "$VIDEO_URL" == *"youtube.com"* ]] || [[ "$VIDEO_URL" == *"youtu.be"* ]]; then
+            echo "Detected YouTube video..."
+          else
+            echo "Unknown platform, trying generic download..."
+          fi
+          # تشغيل سكريبت الرفع الخاص بك
