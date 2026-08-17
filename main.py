@@ -1,50 +1,53 @@
 import os
-import subprocess
+import argparse
+from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
-from google.oauth2.credentials import Credentials
 
-def download_kick_video(m3u8_url, output_filename="video.mp4"):
-    print("[⏳] جاري تحميل الفيديو من Kick...")
-    cmd = [
-        "ffmpeg", "-i", m3u8_url, "-c", "copy",
-        "-bsf:a", "aac_adtstoasc", output_filename
-    ]
-    subprocess.run(cmd, check=True)
-    print("[✅] تم التحميل بنجاح!")
-    return output_filename
-
-def upload_to_youtube(file_path, title, description):
-    print("[⏳] جاري المصادقة ورفع الفيديو إلى يوتيوب...")
-    # استخدام التوكن المحفوظ مباشرة لتجنب طلب تسجيل الدخول اليدوي
-    creds = Credentials.from_authorized_user_file('token.json', ["https://www.googleapis.com/auth/youtube.upload"])
-    youtube = build("youtube", "v3", credentials=creds)
+def upload_to_youtube(file_path, title="Uploaded Video"):
+    # قراءة التوكن من الـ Environment Variables (الذي خزناه في GitHub Secrets)
+    token_json = os.environ.get("YOUTUBE_TOKEN_JSON")
+    if not token_json:
+        raise Exception("YOUTUBE_TOKEN_JSON is not set in environment variables!")
+    
+    # بناء الاعتماديات
+    import json
+    token_info = json.loads(token_json)
+    creds = Credentials.from_authorized_user_info(token_info)
+    
+    youtube = build('youtube', 'v3', credentials=creds)
 
     body = {
-        "snippet": {
-            "title": title,
-            "description": description,
-            "tags": ["Kick", "Stream"],
-            "categoryId": "20"
+        'snippet': {
+            'title': title,
+            'description': 'تم النشر تلقائياً عبر نظام الأتمتة الخاص بنا',
+            'categoryId': '22' # فئة الألعاب أو الترفيه
         },
-        "status": {"privacyStatus": "public"}
+        'status': {
+            'privacyStatus': 'private' # أو public حسب رغبتك
+        }
     }
 
     media = MediaFileUpload(file_path, chunksize=-1, resumable=True)
-    request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
-
+    
+    print("... جاري رفع الفيديو إلى يوتيوب")
+    request = youtube.videos().insert(
+        part="snippet,status",
+        body=body,
+        media_body=media
+    )
+    
     response = None
     while response is None:
         status, response = request.next_chunk()
         if status:
-            print(f"[📈] نسبة الرفع: {int(status.progress() * 100)}%")
+            print(f"تم الرفع بنسبة: {int(status.progress() * 100)}%")
 
-    print(f"[🎉] تم النشر بنجاح! Video ID: {response.get('id')}")
+    print(f"تم النشر بنجاح! Video ID: {response.get('id')}")
 
 if __name__ == "__main__":
-    KICK_URL = os.environ.get("KICK_URL")
-    VIDEO_TITLE = os.environ.get("VIDEO_TITLE", "Kick Live Stream")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--file", default="video.mp4", help="Path to video file")
+    args = parser.parse_args()
     
-    video_file = download_kick_video(KICK_URL)
-    upload_to_youtube(video_file, VIDEO_TITLE, "مرفع تلقائياً عبر السحابة")
-
+    upload_to_youtube(args.file)
